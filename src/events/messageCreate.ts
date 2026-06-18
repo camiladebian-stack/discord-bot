@@ -45,9 +45,10 @@ export const messageCreateEvent = async (message: Message): Promise<void> => {
 
       await statusMsg.edit({ content: null, embeds: [embed] });
     } catch (err) {
-      log.error(`!ai error: ${err instanceof Error ? err.message : String(err)}`);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      log.error(`!ai error: ${errMsg}`);
       await statusMsg.edit({
-        content: 'AI request failed. Model may be rate-limited. Try again.',
+        content: `AI request failed. ${errMsg.length > 100 ? errMsg.slice(0, 97) + '...' : errMsg}`,
       });
     }
   }

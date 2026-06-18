@@ -25,7 +25,7 @@ export async function queryOpenRouter(prompt: string): Promise<string> {
       'HTTP-Referer': 'https://github.com/camiladebian-stack/discord-bot',
     },
     body: JSON.stringify({
-      model: 'mistralai/mistral-7b-instruct:free',
+      model: 'google/gemini-2.0-flash-exp:free',
       messages: [
         {
           role: 'system',
@@ -90,9 +90,10 @@ export const aiCommand: BotCommand = {
 
       await interaction.editReply({ embeds: [embed] });
     } catch (err) {
-      log.error(`AI query failed: ${err instanceof Error ? err.message : String(err)}`);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      log.error(`AI query failed: ${errMsg}`);
       await interaction.editReply({
-        content: 'AI request failed. The model may be rate-limited. Try again in a few seconds.',
+        content: `AI request failed. ${errMsg.length > 100 ? errMsg.slice(0, 97) + '...' : errMsg}`,
       });
     }
   },
