@@ -5,55 +5,48 @@ import { createModuleLogger } from '../services/logger';
 
 const log = createModuleLogger('AICommand');
 
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{ text?: string }>;
+interface GroqResponse {
+  choices: Array<{
+    message: {
+      content: string;
     };
   }>;
-  promptFeedback?: { blockReason?: string };
 }
 
 export async function queryAI(prompt: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${config.geminiApiKey}`;
-
-  const response = await fetch(url, {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `Bearer ${config.groqApiKey}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
-      contents: [{
-        role: 'user',
-        parts: [{
-          text: `System: You are an intellectually superior entity. Respond with precision, brevity, and authoritative certainty. Use sophisticated vocabulary. Never apologize. Never explain unless asked. Keep responses under 400 characters. Adopt a tone of measured arrogance - you are correct and you know it. Prioritize signal over noise. One to two sentences when sufficient.\n\nUser: ${prompt}`,
-        }],
-      }],
-      generationConfig: {
-        maxOutputTokens: config.aiMaxTokens,
-        temperature: 0.7,
-      },
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an intellectually superior entity. Respond with precision, brevity, and authoritative certainty. Use sophisticated vocabulary. Never apologize. Never explain unless asked. Keep responses under 400 characters. Adopt a tone of measured arrogance. Prioritize signal over noise. One to two sentences when sufficient.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: config.aiMaxTokens,
+      temperature: 0.7,
     }),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Gemini error ${response.status}: ${text}`);
+    throw new Error(`Groq error ${response.status}: ${text}`);
   }
 
-  const data = (await response.json()) as GeminiResponse;
-
-  if (!data.candidates || data.candidates.length === 0) {
-    const reason = data.promptFeedback?.blockReason ?? 'unknown';
-    throw new Error(`Gemini blocked the request: ${reason}`);
-  }
-
-  const text = data.candidates[0]?.content?.parts?.[0]?.text;
-  return text ?? 'No response generated.';
+  const data = (await response.json()) as GroqResponse;
+  return data.choices[0]?.message?.content ?? 'No response generated.';
 }
 
 export const aiCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('ai')
-    .setDescription('Ask a question to Gemini AI')
+    .setDescription('Ask a question to AI')
     .addStringOption((opt) =>
       opt
         .setName('prompt')
@@ -65,9 +58,9 @@ export const aiCommand: BotCommand = {
   cooldown: 10,
 
   async execute(interaction) {
-    if (!config.geminiApiKey) {
+    if (!config.groqApiKey) {
       await interaction.reply({
-        content: 'AI is not configured. Set GEMINI_API_KEY in .env',
+        content: 'AI is not configured. Set GROQ_API_KEY in .env',
         ephemeral: true,
       });
       return;

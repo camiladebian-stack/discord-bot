@@ -15,8 +15,8 @@ export const messageCreateEvent = async (message: Message): Promise<void> => {
   const command = args[0]?.toLowerCase();
 
   if (command === 'ai') {
-    if (!config.geminiApiKey) {
-      await message.reply('AI is not configured. Set GEMINI_API_KEY in .env');
+    if (!config.groqApiKey) {
+      await message.reply('AI is not configured. Set GROQ_API_KEY in .env');
       return;
     }
 
