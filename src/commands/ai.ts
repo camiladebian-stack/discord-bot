@@ -13,7 +13,41 @@ interface GroqResponse {
   }>;
 }
 
+interface GroqModel {
+  id: string;
+  active: boolean;
+}
+
+const PREFERRED_MODELS = [
+  'llama-3.1-8b-instant',
+  'llama-3.3-70b-versatile',
+  'qwen/qwen3-32b',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+];
+
+let lastModelUsed = 'llama-3.1-8b-instant';
+
+async function pickBestModel(): Promise<string> {
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { 'Authorization': `Bearer ${config.groqApiKey}` },
+    });
+    if (!res.ok) return lastModelUsed;
+    const data = await res.json() as { data: GroqModel[] };
+    const available = new Set(data.data.filter(m => m.active).map(m => m.id));
+    for (const model of PREFERRED_MODELS) {
+      if (available.has(model)) return model;
+    }
+    return lastModelUsed;
+  } catch {
+    return lastModelUsed;
+  }
+}
+
 export async function queryAI(prompt: string): Promise<string> {
+  const model = await pickBestModel();
+  lastModelUsed = model;
+
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -21,7 +55,7 @@ export async function queryAI(prompt: string): Promise<string> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
+      model,
       messages: [
         {
           role: 'system',
