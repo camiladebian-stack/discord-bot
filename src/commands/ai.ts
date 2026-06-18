@@ -16,7 +16,7 @@ interface OpenRouterResponse {
   };
 }
 
-async function queryOpenRouter(prompt: string): Promise<string> {
+export async function queryOpenRouter(prompt: string): Promise<string> {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {

@@ -3,6 +3,7 @@ import { createModuleLogger } from '../services/logger';
 import { readyEvent } from './ready';
 import { interactionCreateEvent } from './interactionCreate';
 import { guildCreateEvent } from './guildCreate';
+import { messageCreateEvent } from './messageCreate';
 
 const log = createModuleLogger('EventLoader');
 
@@ -18,6 +19,7 @@ export function registerEvents(client: Client): void {
     { name: 'ready', once: true, execute: readyEvent },
     { name: 'interactionCreate', once: false, execute: interactionCreateEvent },
     { name: 'guildCreate', once: false, execute: guildCreateEvent },
+    { name: 'messageCreate', once: false, execute: messageCreateEvent },
   ];
 
   for (const event of events) {
