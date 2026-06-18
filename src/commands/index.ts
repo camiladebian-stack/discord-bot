@@ -6,6 +6,7 @@ import { avatarCommand } from './utility/avatar';
 import { serverCommand } from './utility/server';
 import { kickCommand } from './moderation/kick';
 import { banCommand } from './moderation/ban';
+import { aiCommand } from './ai';
 
 export function loadCommands(): Collection<string, BotCommand> {
   const commands = new Collection<string, BotCommand>();
@@ -17,6 +18,7 @@ export function loadCommands(): Collection<string, BotCommand> {
     serverCommand,
     kickCommand,
     banCommand,
+    aiCommand,
   ];
 
   for (const cmd of commandList) {

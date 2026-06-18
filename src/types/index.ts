@@ -53,6 +53,7 @@ export interface BotConfig {
   rateLimitWindowMs: number;
   antiSpamThreshold: number;
   antiSpamWindowMs: number;
+  openrouterApiKey: string | undefined;
   aiProvider: string | undefined;
   aiMaxTokens: number;
   healthPort: number;
