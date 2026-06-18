@@ -5,56 +5,55 @@ import { createModuleLogger } from '../services/logger';
 
 const log = createModuleLogger('AICommand');
 
-interface OpenRouterResponse {
-  choices: Array<{
-    message: {
-      content: string;
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
     };
   }>;
-  error?: {
-    message: string;
-  };
+  promptFeedback?: { blockReason?: string };
 }
 
-export async function queryOpenRouter(prompt: string): Promise<string> {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+export async function queryAI(prompt: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${config.geminiApiKey}`;
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${config.openrouterApiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://github.com/camiladebian-stack/discord-bot',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'google/gemini-2.0-flash-exp:free',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an intellectually superior entity. Respond with precision, brevity, and authoritative certainty. Use sophisticated vocabulary. Never apologize. Never explain unless explicitly asked. Keep responses under 400 characters. Adopt a tone of measured arrogance - you are correct and you know it. Prioritize signal over noise. One to two sentences when sufficient.',
-        },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: config.aiMaxTokens,
+      contents: [{
+        role: 'user',
+        parts: [{
+          text: `System: You are an intellectually superior entity. Respond with precision, brevity, and authoritative certainty. Use sophisticated vocabulary. Never apologize. Never explain unless asked. Keep responses under 400 characters. Adopt a tone of measured arrogance - you are correct and you know it. Prioritize signal over noise. One to two sentences when sufficient.\n\nUser: ${prompt}`,
+        }],
+      }],
+      generationConfig: {
+        maxOutputTokens: config.aiMaxTokens,
+        temperature: 0.7,
+      },
     }),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`OpenRouter error ${response.status}: ${text}`);
+    throw new Error(`Gemini error ${response.status}: ${text}`);
   }
 
-  const data = (await response.json()) as OpenRouterResponse;
+  const data = (await response.json()) as GeminiResponse;
 
-  if (data.error) {
-    throw new Error(`OpenRouter: ${data.error.message}`);
+  if (!data.candidates || data.candidates.length === 0) {
+    const reason = data.promptFeedback?.blockReason ?? 'unknown';
+    throw new Error(`Gemini blocked the request: ${reason}`);
   }
 
-  return data.choices[0]?.message?.content ?? 'No response generated.';
+  const text = data.candidates[0]?.content?.parts?.[0]?.text;
+  return text ?? 'No response generated.';
 }
 
 export const aiCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName('ai')
-    .setDescription('Ask an AI a question')
+    .setDescription('Ask a question to Gemini AI')
     .addStringOption((opt) =>
       opt
         .setName('prompt')
@@ -66,20 +65,19 @@ export const aiCommand: BotCommand = {
   cooldown: 10,
 
   async execute(interaction) {
-    if (!config.openrouterApiKey) {
+    if (!config.geminiApiKey) {
       await interaction.reply({
-        content: 'AI is not configured. The bot owner needs to set OPENROUTER_API_KEY.',
+        content: 'AI is not configured. Set GEMINI_API_KEY in .env',
         ephemeral: true,
       });
       return;
     }
 
     const prompt = interaction.options.getString('prompt', true);
-
     await interaction.deferReply();
 
     try {
-      const response = await queryOpenRouter(prompt);
+      const response = await queryAI(prompt);
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)

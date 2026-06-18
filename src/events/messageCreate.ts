@@ -1,5 +1,5 @@
 import { Message, EmbedBuilder } from 'discord.js';
-import { queryOpenRouter } from '../commands/ai';
+import { queryAI } from '../commands/ai';
 import { config } from '../config';
 import { createModuleLogger } from '../services/logger';
 
@@ -15,8 +15,8 @@ export const messageCreateEvent = async (message: Message): Promise<void> => {
   const command = args[0]?.toLowerCase();
 
   if (command === 'ai') {
-    if (!config.openrouterApiKey) {
-      await message.reply('AI is not configured. The bot owner needs to set OPENROUTER_API_KEY.');
+    if (!config.geminiApiKey) {
+      await message.reply('AI is not configured. Set GEMINI_API_KEY in .env');
       return;
     }
 
@@ -34,7 +34,7 @@ export const messageCreateEvent = async (message: Message): Promise<void> => {
     const statusMsg = await message.reply('Thinking...');
 
     try {
-      const response = await queryOpenRouter(prompt);
+      const response = await queryAI(prompt);
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
