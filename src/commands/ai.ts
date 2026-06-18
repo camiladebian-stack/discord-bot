@@ -18,12 +18,19 @@ interface GroqModel {
   active: boolean;
 }
 
+interface MessageEntry {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+const conversationMemory = new Map<string, MessageEntry[]>();
 const PREFERRED_MODELS = [
   'llama-3.1-8b-instant',
   'llama-3.3-70b-versatile',
   'qwen/qwen3-32b',
   'meta-llama/llama-4-scout-17b-16e-instruct',
 ];
+const MAX_HISTORY = 6;
 
 let lastModelUsed = 'llama-3.1-8b-instant';
 
@@ -44,9 +51,36 @@ async function pickBestModel(): Promise<string> {
   }
 }
 
-export async function queryAI(prompt: string): Promise<string> {
+export function clearConversation(userId: string): void {
+  conversationMemory.delete(userId);
+}
+
+function getConversation(userId: string): MessageEntry[] {
+  return conversationMemory.get(userId) ?? [];
+}
+
+function addToConversation(userId: string, entry: MessageEntry): void {
+  const history = getConversation(userId);
+  history.push(entry);
+  if (history.length > MAX_HISTORY) {
+    history.splice(0, history.length - MAX_HISTORY);
+  }
+  conversationMemory.set(userId, history);
+}
+
+export async function queryAI(userId: string, prompt: string): Promise<string> {
   const model = await pickBestModel();
   lastModelUsed = model;
+
+  const history = getConversation(userId);
+  const messages = [
+    {
+      role: 'system' as const,
+      content: 'You are an intellectually superior entity. Respond with precision, brevity, and authoritative certainty. Use sophisticated vocabulary. Never apologize. Never explain unless asked. Keep responses under 400 characters. Adopt a tone of measured arrogance. Prioritize signal over noise. One to two sentences when sufficient. Always respond in the same language as the user\'s message.',
+    },
+    ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    { role: 'user' as const, content: prompt },
+  ];
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -56,13 +90,7 @@ export async function queryAI(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an intellectually superior entity. Respond with precision, brevity, and authoritative certainty. Use sophisticated vocabulary. Never apologize. Never explain unless asked. Keep responses under 400 characters. Adopt a tone of measured arrogance. Prioritize signal over noise. One to two sentences when sufficient.',
-        },
-        { role: 'user', content: prompt },
-      ],
+      messages,
       max_tokens: config.aiMaxTokens,
       temperature: 0.7,
     }),
@@ -74,7 +102,12 @@ export async function queryAI(prompt: string): Promise<string> {
   }
 
   const data = (await response.json()) as GroqResponse;
-  return data.choices[0]?.message?.content ?? 'No response generated.';
+  const reply = data.choices[0]?.message?.content ?? 'No response generated.';
+
+  addToConversation(userId, { role: 'user', content: prompt });
+  addToConversation(userId, { role: 'assistant', content: reply });
+
+  return reply;
 }
 
 export const aiCommand: BotCommand = {
@@ -101,10 +134,17 @@ export const aiCommand: BotCommand = {
     }
 
     const prompt = interaction.options.getString('prompt', true);
+
+    if (prompt.toLowerCase() === 'clear' || prompt.toLowerCase() === 'borrar') {
+      clearConversation(interaction.user.id);
+      await interaction.reply({ content: 'Conversation memory cleared.', ephemeral: true });
+      return;
+    }
+
     await interaction.deferReply();
 
     try {
-      const response = await queryAI(prompt);
+      const response = await queryAI(interaction.user.id, prompt);
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)

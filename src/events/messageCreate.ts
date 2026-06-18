@@ -1,5 +1,5 @@
 import { Message, EmbedBuilder } from 'discord.js';
-import { queryAI } from '../commands/ai';
+import { queryAI, clearConversation } from '../commands/ai';
 import { config } from '../config';
 import { createModuleLogger } from '../services/logger';
 
@@ -13,6 +13,12 @@ export const messageCreateEvent = async (message: Message): Promise<void> => {
 
   const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
+
+  if (command === 'aiclear' || command === 'aiclear') {
+    clearConversation(message.author.id);
+    await message.reply('Conversation memory cleared.');
+    return;
+  }
 
   if (command === 'ai') {
     if (!config.groqApiKey) {
@@ -31,10 +37,16 @@ export const messageCreateEvent = async (message: Message): Promise<void> => {
       return;
     }
 
+    if (prompt.toLowerCase() === 'clear' || prompt.toLowerCase() === 'borrar') {
+      clearConversation(message.author.id);
+      await message.reply('Conversation memory cleared.');
+      return;
+    }
+
     const statusMsg = await message.reply('Thinking...');
 
     try {
-      const response = await queryAI(prompt);
+      const response = await queryAI(message.author.id, prompt);
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
